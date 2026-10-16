@@ -1,0 +1,23 @@
+name: Colab Keep-Alive 24/7
+
+on:
+  schedule:
+    - cron: '*/3 * * * *'
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Colab
+        run: |
+          echo "⏰ Ping at $(date)"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.COLAB_URL }}")
+          echo "📊 HTTP Status: $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "🟢 Colab session ACTIVE"
+          else
+            echo "🔴 Session DOWN!"
+          fi
+      - name: Keep Runner Active
+        run: echo "💓 Keep-alive cycle complete"
