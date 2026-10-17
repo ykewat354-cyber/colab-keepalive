@@ -1,4 +1,4 @@
-"""Minecraft Colab Panel v2 — Start/Stop/Restart + Console + Live Log."""
+"""Minecraft Colab Panel v2.1 — Start/Stop/Restart + Console + Live Log + Service status."""
 from flask import Flask, jsonify, request
 import subprocess, os, threading, time
 from datetime import datetime
@@ -72,6 +72,7 @@ pre{background:#020617;border-radius:10px;padding:12px;font-size:12px;overflow:a
 <div class="card">
   <div style="font-size:18px;font-weight:700"><span class="dot" id="dot"></span><span id="st">Check ho raha...</span></div>
   <div class="muted" id="tm"></div>
+  <div class="muted" id="svc"></div>
 </div>
 <div class="card center">
   <button class="b-start" onclick="ctl('start')">▶️ Start</button>
@@ -95,6 +96,7 @@ async function refresh(){
   document.getElementById('dot').className = 'dot' + (s.running ? ' on' : '');
   document.getElementById('st').textContent = s.running ? 'Server ONLINE ✅' : 'Server OFFLINE ❌';
   document.getElementById('tm').textContent = 'Last check: ' + s.time;
+  document.getElementById('svc').textContent = 'playit: ' + (s.playit ? '✅' : '❌') + ' | ngrok: ' + (s.ngrok ? '✅' : '❌') + ' | world backup: ' + (s.backup || '-');
   const l = await (await fetch('/api/log')).json();
   const el = document.getElementById('log');
   el.textContent = l.log;
@@ -126,9 +128,23 @@ setInterval(refresh, 5000);
 def index():
     return PAGE
 
+def proc_alive(name):
+    try:
+        return subprocess.run(['pgrep', '-x', name], capture_output=True).returncode == 0
+    except Exception:
+        return False
+
 @app.route('/api/status')
 def status():
-    return jsonify({'running': is_running(), 'time': datetime.now().strftime('%H:%M:%S')})
+    try:
+        backup = open('LAST_BACKUP').read().strip()
+    except Exception:
+        backup = '-'
+    return jsonify({'running': is_running(),
+                    'playit': proc_alive('playit'),
+                    'ngrok': proc_alive('ngrok'),
+                    'backup': backup,
+                    'time': datetime.now().strftime('%H:%M:%S')})
 
 @app.route('/api/log')
 def log():
