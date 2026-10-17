@@ -1,23 +1,31 @@
-name: Colab Keep-Alive 24/7
+name: MC Panel Keepalive (24/7 monitor)
 
 on:
   schedule:
-    - cron: '*/3 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
   keep-alive:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Colab
+      - name: Ping Colab Panel
+        env:
+          PANEL: ${{ secrets.COLAB_URL }}
         run: |
-          echo "⏰ Ping at $(date)"
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.COLAB_URL }}")
-          echo "📊 HTTP Status: $STATUS"
-          if [ "$STATUS" = "200" ]; then
-            echo "🟢 Colab session ACTIVE"
-          else
-            echo "🔴 Session DOWN!"
+          echo "⏰ Ping at $(date -u)"
+          if [ -z "$PANEL" ]; then
+            echo "⚠️ COLAB_URL secret set nahi hai — skip"
+            exit 0
           fi
-      - name: Keep Runner Active
-        run: echo "💓 Keep-alive cycle complete"
+          CODE=$(curl -s -o /tmp/status.json -w "%{http_code}" -m 25 \
+            -H "ngrok-skip-browser-warning: true" "$PANEL/api/status" || echo "000")
+          echo "📊 HTTP: $CODE"
+          BODY=$(head -c 300 /tmp/status.json 2>/dev/null || echo "")
+          echo "📦 Response: $BODY"
+          if [ "$CODE" = "200" ] && echo "$BODY" | grep -q '"running"'; then
+            echo "🟢 Panel LIVE — server status: $BODY"
+          else
+            echo "🔴 Panel reachable nahi (session band ho gaya ho sakta hai)"
+          fi
+          echo "💓 Keep-alive cycle complete"
